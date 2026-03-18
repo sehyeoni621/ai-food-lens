@@ -232,12 +232,24 @@ const AILensScreen: React.FC = () => {
         {/* AI 예측 결과 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🤖 AI 인식 결과</Text>
+          {predictions[0]?.low_confidence && (
+            <View style={styles.lowConfidenceBox}>
+              <Text style={styles.lowConfidenceText}>
+                ⚠️ 인식 신뢰도가 낮습니다. 음식이 잘 보이도록 더 가까이서 찍어보세요.{"\n"}
+                한식 인식 정확도를 높이려면 파인튜닝이 필요합니다.
+              </Text>
+            </View>
+          )}
           {predictions.map((p, i) => (
             <View key={p.food_key} style={styles.predictionRow}>
               <Text style={styles.predictionRank}>#{i + 1}</Text>
               <Text style={styles.predictionName}>{p.food_name_ko}</Text>
               <View style={styles.confidenceBar}>
-                <View style={[styles.confidenceFill, { width: `${p.confidence}%` }]} />
+                <View style={[
+                  styles.confidenceFill,
+                  { width: `${Math.min(p.confidence, 100)}%`,
+                    backgroundColor: p.confidence >= 50 ? "#4CAF50" : p.confidence >= 20 ? "#FFC107" : "#F44336" }
+                ]} />
               </View>
               <Text style={styles.confidenceText}>{p.confidence.toFixed(1)}%</Text>
             </View>
@@ -463,7 +475,12 @@ const styles = StyleSheet.create({
   confidenceBar: {
     flex: 1, height: 8, backgroundColor: "#F0F0F0", borderRadius: 4, overflow: "hidden",
   },
-  confidenceFill: { height: "100%", backgroundColor: "#4CAF50", borderRadius: 4 },
+  confidenceFill: { height: "100%", borderRadius: 4 },
+  lowConfidenceBox: {
+    backgroundColor: "#FFF8E1", borderRadius: 10, padding: 12, marginBottom: 14,
+    borderLeftWidth: 3, borderLeftColor: "#FFC107",
+  },
+  lowConfidenceText: { color: "#795548", fontSize: 13, lineHeight: 20 },
   confidenceText: { fontSize: 13, fontWeight: "600", color: "#636E72", width: 45, textAlign: "right" },
 
   // 영양성분 그리드
