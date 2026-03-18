@@ -100,20 +100,34 @@ class FoodRecognitionEngine:
     def _load(self):
         if FINETUNED_PATH.exists():
             print("[AI 렌즈] 파인튜닝 모델 로드:", FINETUNED_PATH)
-            # 파인튜닝 모델은 별도 클래스 수로 저장돼 있을 수 있음
-            # train.py 로 생성된 경우 state_dict 에 num_classes 정보 포함
             checkpoint = torch.load(FINETUNED_PATH, map_location=self.device)
             num_classes = checkpoint.get("num_classes", 101)
-            labels = checkpoint.get("labels", None)
-            self._finetuned_labels = labels  # list[str] 한국어 레이블
-            base = models.mobilenet_v3_large(weights=None)
-            in_feat = base.classifier[-1].in_features
+            labels      = checkpoint.get("labels", None)
+            backbone    = checkpoint.get("backbone", "mobilenet_v3_large")
+            self._finetuned_labels = labels
+
+            # 백본별 모델 복원 (train.py와 동일한 구조)
             import torch.nn as nn
-            base.classifier[-1] = nn.Linear(in_feat, num_classes)
+            if backbone == "efficientnet_b3":
+                base = models.efficientnet_b3(weights=None)
+                in_feat = base.classifier[-1].in_features
+                base.classifier[-1] = nn.Sequential(
+                    nn.Dropout(p=0.4), nn.Linear(in_feat, num_classes)
+                )
+            elif backbone == "resnet50":
+                base = models.resnet50(weights=None)
+                in_feat = base.fc.in_features
+                base.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(in_feat, num_classes))
+            else:  # mobilenet_v3_large (기본)
+                base = models.mobilenet_v3_large(weights=None)
+                in_feat = base.classifier[-1].in_features
+                base.classifier[-1] = nn.Linear(in_feat, num_classes)
+
             base.load_state_dict(checkpoint["state_dict"])
             self.model = base.to(self.device).eval()
             self.mode = "finetuned"
-            print(f"[AI 렌즈] 파인튜닝 모드 (클래스={num_classes})")
+            val_acc = checkpoint.get("val_acc", 0)
+            print(f"[AI 렌즈] 파인튜닝 모드 | 백본={backbone} | 클래스={num_classes} | val_acc={val_acc:.1f}%")
         else:
             print("[AI 렌즈] ImageNet 사전학습 모드 (MobileNetV3-Large, 1000 클래스)")
             self.model = models.mobilenet_v3_large(
